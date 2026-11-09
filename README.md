@@ -97,18 +97,19 @@ class Field3Model {
 }
 ```
 
-**Fungsi**: Model data untuk parsing JSON response dari API ThingSpeak.
+**Penjelasan Lengkap**:
 
-**Isi**:
-- `Field1Model`: Model untuk data suhu (field ke-1). Memiliki properti `createdAt`, `entryId`, `field1`.
-- `Field2Model`: Model untuk data kelembaban udara (field ke-2). Memiliki properti `createdAt`, `entryId`, `field2`.
-- `Field3Model`: Model untuk data kelembaban tanah (field ke-3). Memiliki properti `createdAt`, `entryId`, `field3`.
+File ini berisi tiga model data (`Field1Model`, `Field2Model`, `Field3Model`) yang merepresentasikan struktur data yang dikembalikan oleh API ThingSpeak untuk setiap field sensor. Setiap model memiliki properti yang sama: `createdAt` (waktu pengiriman data), `entryId` (urutan entri), dan `fieldX` (nilai sensor).
 
-**Method**:
-- `xxxModelFromJson(String)`: Helper function untuk convert JSON string ke model.
-- `xxxModelToJson(Model)`: Helper function untuk convert model ke JSON string.
-- `fromJson(Map)`: Factory constructor dari map.
-- `toJson()`: Method untuk serialize object ke map.
+Model `Field1Model` digunakan untuk data suhu (field ke-1), `Field2Model` untuk kelembaban udara (field ke-2), dan `Field3Model` untuk kelembaban tanah (field ke-3). Struktur ini memudahkan pengelompokan berdasarkan tipe data sensor meskipun format response API-nya sama.
+
+Setiap model memiliki dua helper function: `xxxModelFromJson(String)` dan `xxxModelToJson(Model)`. Function `FromJson` mengkonversi string JSON yang diterima dari API menjadi object model Dart. Prosesnya: string JSON di-decode menggunakan `json.decode()` dari package `dart:convert` menjadi `Map<String, dynamic>`, lalu di-pass ke factory constructor `fromJson()` untuk membuat instance model. Function `ToJson` melakukan proses sebaliknya: mengkonversi object model kembali menjadi string JSON menggunakan `json.encode()` setelah memanggil method `toJson()` yang menghasilkan map.
+
+Factory constructor `fromJson(Map<String, dynamic> json)` bertanggung jawab membuat instance model dari map. Setiap properti di-assign dari map dengan mapping key yang sesuai: `created_at` untuk waktu (dikonversi ke `DateTime` menggunakan `DateTime.parse()`), `entry_id` untuk ID entri, dan `fieldX` untuk nilai sensor. Ini menangani konversi tipe data otomatis: string ke DateTime untuk `createdAt`, integer ke int untuk `entryId`, dan string ke String untuk `fieldX`.
+
+Method `toJson()` mengembalikan `Map<String, dynamic>` yang berisi representasi serialisasi dari object. Setiap properti dikonversi kembali ke format JSON-compatible: `DateTime` dikonversi ke string ISO 8601 menggunakan `toIso8601String()`, integer tetap integer, dan string tetap string. Map ini kemudian di-encode menjadi string JSON oleh helper function eksternal.
+
+Pola ini mengikuti best practice Flutter/Dart untuk parsing JSON: setiap model memiliki factory constructor untuk parsing dan method untuk serialisasi, plus helper function eksternal untuk convenience. Ini memudahkan penggunaan: cukup panggil `field1ModelFromJson(response.body)` untuk parsing dan `field1ModelToJson(model)` untuk serialisasi jika perlu mengirim data kembali (meskipun dalam kasus read-only API ThingSpeak, serialisasi jarang digunakan).
 
 ---
 
@@ -157,18 +158,23 @@ class ApiService {
 }
 ```
 
-**Fungsi**: Service untuk komunikasi dengan API ThingSpeak.
+**Penjelasan Lengkap**:
 
-**Isi**:
-- `readKey`: API key untuk akses read API (GJALAA6FCFQWBJ6M).
-- `fieldUrl1/2/3`: URL endpoint untuk masing-masing field (channel 3550228).
+File ini berisi `ApiService` class yang bertugas melakukan komunikasi HTTP dengan API ThingSpeak untuk mengambil data sensor terakhir. Class ini menggunakan library `Dio` sebagai HTTP client yang lebih powerful dan user-friendly dibanding `HttpClient` bawaan Flutter.
 
-**Method**:
-- `getField1()`: Ambil data suhu terakhir dari field ke-1.
-- `getField2()`: Ambil data kelembaban udara terakhir dari field ke-2.
-- `getField3()`: Ambil data kelembaban tanah terakhir dari field ke-3.
+`Dio` adalah HTTP client untuk Dart yang mendukung interseptor, form encoding, JSON parsing, timeout, cancellation, dan lain-lain. Instance `Dio dio = Dio()` dibuat sebagai class member untuk reuse connection pool dan konfigurasi default.
 
-**Dependency**: Menggunakan `Dio` HTTP client.
+`readKey` adalah API key read-only untuk mengakses channel ThingSpeak. API key ini diperlukan oleh ThingSpeak untuk autentikasi request read. Dalam production, API key sebaiknya tidak hardcode di source code, tapi disimpan di environment variable atau menggunakan secure storage. Untuk dev/debug, hardcode acceptable.
+
+`fieldUrl1/2/3` adalah URL endpoint untuk masing-masing field sensor. Format URL ThingSpeak untuk mengambil data terakhir adalah `https://api.thingspeak.com/channels/{channel_id}/fields/{field_number}/last.json?api_key={api_key}`. Channel ID 3550228 adalah ID channel yang digunakan, field 1 untuk suhu, field 2 untuk kelembaban udara, field 3 untuk kelembaban tanah. Setiap URL dibentuk dengan string concatenation: `"$fieldUrlX$readKey"`.
+
+Method `getField1()`, `getField2()`, `getField3()` adalah async function yang mengambil data sensor terakhir untuk masing-masing field. Prosesnya: 1) Gunakan `dio.get()` untuk melakukan HTTP GET request ke URL yang sesuai, 2) Tunggu response dengan `await`, 3) Parse response data menggunakan `FieldXModel.fromJson()` yang sudah dibuat di `field_model.dart`, 4) Return model object.
+
+Response `response.data` dari Dio adalah `dynamic` yang sebenarnya adalah `Map<String, dynamic>` setelah di-decode oleh Dio dari JSON. Ini mengapa bisa langsung di-pass ke `FieldXModel.fromJson()`.
+
+Try-catch digunakan untuk menangani error network atau parsing. Jika terjadi error, `rethrow` digunakan untuk melempar error kembali ke caller. Ini memungkinkan caller menangani error secara spesifik (misal: tampilkan error message, retry, dsb). Alternatif: return `Future<FieldXModel?>` dan return `null` di catch block, tapi `rethrow` lebih jelas bahwa method ini expected to succeed.
+
+Pattern ini mengikuti best practice untuk API service: separate concern antara HTTP communication dan business logic, gunakan async/await untuk non-blocking I/O, dan handle error secara explicit.
 
 ---
 
@@ -202,17 +208,21 @@ class AppProvider extends ChangeNotifier{
 }
 ```
 
-**Fungsi**: State management menggunakan Provider pattern.
+**Penjelasan Lengkap**:
 
-**Isi**:
-- `field1model`, `field2model`, `field3model`: State untuk menyimpan data dari API.
+File ini berisi `AppProvider` class yang bertindak sebagai state management layer menggunakan Pattern Provider (dari package `provider`). Class ini meng-extends `ChangeNotifier` dari Flutter framework, yang merupakan implementasi dari observer pattern untuk reactivity UI.
 
-**Method**:
-- `getTemperature()`: Fetch data suhu, update state dengan `notifyListeners()`.
-- `getHumidity()`: Fetch data kelembaban udara, update state.
-- `getSoilMoisture()`: Fetch data kelembaban tanah, update state.
+`AppProvider` menyimpan tiga state property: `field1model`, `field2model`, `field3model` yang bertipe `Field1Model?`, `Field2Model?`, `Field3Model?` (nullable). Property nullable (`?`) menunjukkan bahwa nilai awal belum tersedia (null) sampai data berhasil di-fetch dari API. Ini penting untuk handling loading state di UI.
 
-**Pattern**: Menggunakan `ChangeNotifier` untuk reactivity Flutter UI.
+`getTemperature()`, `getHumidity()`, `getSoilMoisture()` adalah async method yang mengambil data dari API dan update state. Prosesnya: 1) Panggil `notifyListeners()` untuk memberitahu Flutter bahwa state akan berubah (ini trigger re-render widgets yang listen ke provider), 2) Fetch data menggunakan `ApiService().getFieldX()`, 3) Assign hasil ke state property `fieldXmodel`.
+
+Penting: `notifyListeners()` dipanggil **sebelum** fetch data, bukan sesudah. Ini adalah pola umum untuk loading state: UI langsung re-render (biasanya tampilkan loading indicator) sebelum data masuk. Setelah fetch selesai, assign ke property, dan karena property adalah class member, Flutter sudah notify listeners. Jika `notifyListeners()` dipanggil setelah assign, tidak ada effect karena tidak ada perubahan state (setter dipanggil tapi notification tidak di-trigger otomatis oleh Dart).
+
+Async/await digunakan untuk menangani I/O yang tidak-blocking. `await ApiService().getField1()` menunggu HTTP request selesai, lalu assign hasil ke `field1model`. Return type `Future` memungkinkan caller menunggu atau tidak menunggu hasil (misal: di `initState()`, caller tidak tunggu).
+
+`notifyListeners()` adalah method dari `ChangeNotifier` yang memberitahu semua listener (widgets yang subscribe via `Consumer` atau `Provider.of`) bahwa state berubah dan mereka harus rebuild. Ini adalah inti dari reactivity Flutter: provider notify, consumer rebuild.
+
+Pattern ini mengikuti best practice state management Flutter: gunakan `ChangeNotifierProvider` untuk simple state, separate business logic (fetch data) dari UI, dan gunakan `notifyListeners()` untuk trigger reactivity.
 
 ---
 
@@ -271,15 +281,23 @@ class AppStyles {
 }
 ```
 
-**Fungsi**: Centralized styling & konfigurasi visual aplikasi.
+**Penjelasan Lengkap**:
 
-**Isi**:
-- `TextStyle` variants: `roboto14/16` dengan variasi font weight (w400/w500/w600/w700), plus `whiteRoboto14Bold`.
-- `mainColor`: Warna tema aplikasi (hijau #36725D).
-- `loremIpsum`: Teks placeholder untuk demo.
-- `gambarThermometer/SoilAnalysis/SensorHumidity`: Nama file gambar asset (PNG).
+File ini berisi `AppStyles` class yang berfungsi sebagai centralized style configuration untuk aplikasi. Ini adalah implementasi dari design system pattern: semua style visual (typography, color, asset path) dikumpulkan di satu tempat untuk mudah di-maintain dan konsisten.
 
-**Dependency**: `google_fonts` package untuk custom typography.
+`GoogleFonts.roboto()` adalah factory constructor dari package `google_fonts` yang menghasilkan `TextStyle` object dengan font Roboto. Font Roboto adalah default Google font yang clean dan modern, cocok untuk aplikasi profesional. Style ditentukan oleh: `fontSize` (ukuran teks), `fontWeight` (ketebalan font), `color` (opsional, default hitam).
+
+`roboto14/16` adalah naming convention untuk font size: `14` atau `16` menunjukkan ukuran font dalam sp (scale-independent pixels). Variasi `Italic`, `SemiBold`, `Bold` menunjukkan `fontStyle` dan `fontWeight`: `w400` (normal), `w500` (medium), `w600` (semi-bold), `w700` (bold).
+
+`whiteRoboto14Bold` adalah style khusus dengan teks warna putih (`color: Colors.white`) untuk teks di atas background gelap (misal: AppBar). Ini menghindari hardcode warna di UI layer.
+
+`mainColor` adalah warna tema utama aplikasi (hijau #36725D). Ini digunakan di berbagai tempat (AppBar, button, border) untuk konsistensi visual. Warna hex `0xff36725D` adalah format ARGB (Alpha, Red, Green, Blue) dengan Alpha 255 (opaque). Pemilihan warna hijau sesuai dengan tema pertanian/agrikultur.
+
+`loremIpsum` adalah string placeholder text (standard Lorem Ipsum) yang digunakan untuk demo atau space-filling di UI sebelum data asli tersedia. Ini memungkinkan developer melihat layout tanpa data.
+
+`gambarThermometer/SoilAnalysis/SensorHumidity` adalah nama file gambar asset (PNG) yang digunakan untuk ikon sensor di UI. Path relatif ke asset folder, dan digunakan dengan `Image.asset()` widget.
+
+Pattern ini mengikuti best practice Flutter: gunakan centralized style configuration untuk maintainability, gunakan `google_fonts` untuk custom typography, dan gunakan naming convention yang jelas untuk membedakan variasi style.
 
 ---
 
@@ -327,18 +345,31 @@ class CustomReadField extends StatelessWidget {
 }
 ```
 
-**Fungsi**: Custom reusable widget untuk tampilan card data sensor.
+**Penjelasan Lengkap**:
 
-**Props**:
-- `hasil`: String value untuk ditampilkan.
-- `warnaBorder`: Color object untuk border color.
-- `gambar`: String path gambar asset.
+File ini berisi `CustomReadField` class yang merupakan custom reusable widget untuk menampilkan data sensor dalam format card. Ini adalah implementasi dari DRY (Don't Repeat Yourself) principle: widget yang sering digunakan dibuat satu kali dan di-reuse di banyak tempat.
 
-**Layout**:
-- Container dengan border radius 24px & border width 4px.
-- Image asset di atas (ukuran 1/4 lebar layar).
-- Text di bawah (centered).
-- Horizontal margin 24px.
+`CustomReadField` adalah `StatelessWidget` karena isinya tidak berubah setelah dibuat. Widget ini menerima tiga props dari caller: `hasil` (string nilai sensor), `warnaBorder` (color untuk border card), `gambar` (string path gambar asset).
+
+Constructor `CustomReadField()` memiliki `super.key` untuk support Flutter widget key system (untuk identity dan optimization), dan 3 required properties yang diassign ke class member.
+
+Layout menggunakan `Container` sebagai parent widget dengan konfigurasi visual:
+- `width: double.infinity`: Card memenuhi lebar available space.
+- `margin: EdgeInsets.symmetric(horizontal: 24)`: Margin horizontal 24px untuk spacing dari edge screen.
+- `padding: EdgeInsets.symmetric(vertical: 18)`: Padding vertical 18px untuk spacing internal.
+- `decoration: BoxDecoration(...)`: Styling visual:
+  - `borderRadius: BorderRadius.circular(24)`: Corner card dibuat membulat dengan radius 24px.
+  - `border: Border.all(color: warnaBorder, width: 4)`: Border dengan warna dan ketebalan yang configurable.
+
+`Column` child digunakan untuk layout vertical: gambar di atas, text di bawah.
+- `SizedBox` dengan `width` dan `height` = `MediaQuery.of(context).size.width / 4`: Ukuran gambar relative terhadap lebar layar (1/4 lebar). Ini responsive: gambar mengecil/membesar mengikuti ukuran layar.
+- `Image.asset(gambar, fit: BoxFit.fill)`: Widget untuk menampilkan gambar asset. `fit: BoxFit.fill` membuat gambar memenuhi SizedBox tanpa preserve aspect ratio.
+- `SizedBox(height: 14)`: Spacing antara gambar dan text.
+- `Center(child: Text(hasil))`: Widget text dengan posisi center.
+
+`MediaQuery.of(context).size.width` adalah cara Flutter mendapatkan lebar layar saat ini. Ini memungkinkan widget responsive terhadap ukuran layar berbeda (mobile, tablet, desktop).
+
+Pattern ini mengikuti best practice Flutter: gunakan `StatelessWidget` untuk UI statis, gunakan `Container` dengan `BoxDecoration` untuk styling, gunakan `MediaQuery` untuk responsive layout, dan gunakan named properties untuk konfigurasi.
 
 ---
 
@@ -397,16 +428,30 @@ class HomePage extends StatelessWidget {
 }
 ```
 
-**Fungsi**: Halaman utama aplikasi untuk menampilkan data sensor.
+**Penjelasan Lengkap**:
 
-**Layout**:
-- AppBar dengan judul "Agro Tech" & warna tema.
-- ListView vertical dengan 3 card `CustomReadField`:
-  1. Data suhu (`field1model.field1`)
-  2. Data kelembaban udara (`field2model.field2`)
-  3. Data kelembaban tanah (`field3model.field3`)
+File ini berisi `HomePage` class yang merupakan halaman utama aplikasi untuk menampilkan data sensor real-time. Ini adalah widget utama yang menerima data dari `AppProvider` dan menampilkannya menggunakan `CustomReadField`.
 
-**State**: Menggunakan `Consumer<AppProvider>` untuk subscribe perubahan state.
+`HomePage` adalah `StatelessWidget` karena UI tidak berubah internal; perubahan dirender oleh `Consumer` yang rebuild widget setiap kali state di `AppProvider` berubah. Ini adalah pattern Flutter: stateless UI dengan stateful provider.
+
+`Consumer<AppProvider>` adalah widget dari package `provider` yang listen ke `AppProvider`. Setiap kali `notifyListeners()` dipanggil di `AppProvider`, `Consumer` trigger rebuild widget dan pass `appProvider` object ke builder function.
+
+`Scaffold` adalah widget dasar Material Design layout structure. Ini menyediakan struktur dasar: AppBar, body, floatingActionButton, dsb.
+- `appBar`: AppBar dengan judul "Agro Tech" (menggunakan style dari `AppStyles.whiteRoboto14Bold` agar teks putih), centered title, no automatic back button (`automaticallyImplyLeading: false` karena ini adalah halaman utama), background color `AppStyles.mainColor`.
+- `body`: Bagian utama halaman.
+
+`body` menggunakan `Center` child `ListView` untuk layout vertical scrollable.
+- `shrinkWrap: true`: ListView hanya memakan space sebesar content-nya (tidak expand ke full height). Ini penting karena ListView ada di dalam widget lain (Center).
+- `children`: List widget vertikal:
+  1. `CustomReadField` untuk suhu: ambil `field1model!.field1` (non-null assertion operator `!` karena kita yakin data sudah ada setelah fetch), border `mainColor`, gambar `thermometer.png`.
+  2. `SizedBox(height: 20)`: Spacing 20px antar card.
+  3. `CustomReadField` untuk kelembaban udara: `field2model!.field2`.
+  4. `SizedBox(height: 20)`.
+  5. `CustomReadField` untuk kelembaban tanah: `field3model!.field3`.
+
+Non-null assertion operator `!` digunakan karena `fieldXmodel` adalah nullable. Dalam kasus ini, kita yakin bahwa `initState()` di `SplashScreen` sudah memanggil `getTemperature()` dsb sebelum navigasi ke `HomePage`, jadi data sudah tersedia. Jika data belum tersedia (null), aplikasi akan throw runtime error. Untuk production, sebaiknya handle null case dengan conditional atau default value.
+
+Pattern ini mengikuti best practice Flutter: gunakan `Consumer` untuk reactive UI, gunakan `Scaffold` untuk layout struktur, gunakan `ListView` untuk scrollable content, dan gunakan `!` operator dengan hati-hati.
 
 ---
 
@@ -503,17 +548,33 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 ```
 
-**Fungsi**: Halaman awal saat aplikasi dibuka.
+**Penjelasan Lengkap**:
 
-**Lifecycle**:
-- `initState()`: Fetch semua data sensor (suhu, kelembaban, tanah) via `AppProvider`.
+File ini berisi `SplashScreen` class yang merupakan halaman pertama yang ditampilkan saat aplikasi dibuka. Ini berfungsi sebagai loading screen untuk fetch data awal sebelum navigasi ke `HomePage`.
 
-**Layout**:
-- AppBar "Agro Tech".
-- Text lorem ipsum (deskripsi aplikasi).
-- Button "Continue" (hijau) untuk navigasi ke `HomePage`.
+`SplashScreen` adalah `StatefulWidget` karena butuh lifecycle management (`initState()`). Class `SplashScreen` adalah immutable widget, class `_SplashScreenState` adalah mutable state.
 
-**Navigasi**: `SplashScreen` → `HomePage`.
+`initState()` adalah lifecycle method yang dipanggil sekali saat widget dimasukkan ke tree. Ini adalah tempat ideal untuk inisialisasi: fetch data, subscribe event, dsb.
+- `Provider.of<AppProvider>(context, listen: false)`: Ambil instance `AppProvider` dari widget tree. Parameter `listen: false` penting: ini menunjukkan bahwa state ini tidak perlu listen perubahan (karena `initState()` hanya dipanggil sekali, bukan rebuild). Jika `listen: true`, akan ada warning karena provider rebuild di dalam `initState()`.
+- `getTemperature()`, `getHumidity()`, `getSoilMoisture()`: Panggil method untuk fetch data dari API. Ini async operation, tapi tidak `await` karena tidak perlu tunggu hasil ( navigasi bisa dilakukan meskipun data belum masuk, UI akan update otomatis saat data ready).
+
+`Consumer<AppProvider>` di `build()` tidak digunakan di `SplashScreen` karena UI tidak perlu update reaktif (tidak menampilkan data sensor). Tapi `Consumer` tetap ada karena mungkin untuk future enhancement atau konsistensi. Saat ini, `appProvider` tidak dipakai.
+
+`Scaffold` dengan layout:
+- `appBar`: Sama seperti di `HomePage`, tapi tanpa `automaticallyImplyLeading: false` (back button tidak relevan di splash screen).
+- `body`: `Center` child `ListView` dengan `shrinkWrap: true` dan `physics: NeverScrollableScrollPhysics()` (tidak scrollable karena hanya ada few content).
+
+Content dalam `ListView`:
+- `Container` dengan `margin` horizontal 20px, `width: double.infinity`: Container memenuhi lebar (minus margin).
+- `Text(AppStyles.loremIpsum)`: Teks placeholder deskripsi aplikasi. `textAlign: TextAlign.justify` membuat teks rata kiri-kanan (full justify).
+- `SizedBox(height: 30)`: Spacing antara text dan button.
+- `Row` dengan `mainAxisAlignment: MainAxisAlignment.end`: Button di posisi kanan.
+- `GestureDetector`: Widget untuk detect tap event. `onTap()` adalah callback saat user tap.
+- `Container` di dalam `GestureDetector`: Styling button dengan margin, padding, border radius 24px (pill shape), warna tema, dan teks putih "Continue".
+
+`onTap` event handler: `Navigator.push(context, MaterialPageRoute(builder: (context) => HomePage()))`. Ini navigasi ke `HomePage` dengan animasi Material Design default. `MaterialPageRoute` adalah route yang transisinya sesuai dengan platform (slide right-to-left di Android, slide bottom-to-top di iOS).
+
+Pattern ini mengikuti best practice Flutter: gunakan `StatefulWidget` untuk lifecycle management, gunakan `initState()` untuk inisialisasi async, gunakan `Navigator` untuk routing, dan gunakan `GestureDetector` untuk interactive widget.
 
 ---
 
@@ -539,12 +600,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<AppProvider>(
-          create: (context) => AppProvider()
-            ..getTemperature()
-            ..getHumidity()
-            ..getSoilMoisture(),
-        ),
+        ChangeNotifierProvider<AppProvider>(create: (context) => AppProvider()..getTemperature()..getHumidity()..getSoilMoisture()),
       ],
       child: MaterialApp(
         title: "MCS BAB 5",
@@ -560,16 +616,30 @@ class MyApp extends StatelessWidget {
 }
 ```
 
-**Fungsi**: Entry point aplikasi.
+**Penjelasan Lengkap**:
 
-**Isi**:
-- `main()`: Enable `DevicePreview` (untuk debugging responsive), jalankan `MyApp()`.
-- `MyApp`: Stateful root widget.
-  - `MultiProvider`: Inisialisasi `AppProvider` dengan fetch data di constructor.
-  - `MaterialApp`: Set theme, title "MCS BAB 5", hide debug banner.
-  - `home`: `SplashScreen`.
+File ini berisi entry point aplikasi (`main()`) dan root widget (`MyApp`). Ini adalah file pertama yang dijalankan saat aplikasi启动.
 
-**Dependency**: `device_preview`, `provider` package.
+`main()` function adalah entry point Dart/Flutter aplikasi. Ini dipanggil pertama kali saat aplikasi启动.
+- `DevicePreview.enable()`: Enable `device_preview` package yang memungkinkan preview aplikasi di berbagai ukuran device langsung di desktop (browser). Ini sangat berguna untuk testing responsive layout tanpa perlu emulasi device. Ini adalah development-only feature (tidak affecting production).
+- `runApp(MyApp())`: Start Flutter aplikasi dengan `MyApp` sebagai root widget.
+
+`MyApp` adalah `StatelessWidget` root widget. Ini adalah widget yang mencakup seluruh aplikasi.
+
+`MultiProvider` adalah widget dari package `provider` yang menyediakan multiple providers ke subtree. Ini adalah pattern untuk dependency injection: providers di-inject ke widget tree, dan widgets di bawah bisa access providers dengan `Consumer` atau `Provider.of()`.
+- `ChangeNotifierProvider<AppProvider>(create: (context) => AppProvider()..getTemperature()..getHumidity()..getSoilMoisture())`: Buat instance `AppProvider` dan inject ke subtree. `create` function dipanggil sekali saat widget pertama kali dibuat (bukan saat rebuild). `..` operator (cascade notation) digunakan untuk memanggil method pada object yang sama tanpa perlu repeat `AppProvider()`: `AppProvider()..getTemperature()` = buat instance, panggil `getTemperature()`, return instance.
+
+Method chaining `getTemperature()..getHumidity()..getSoilMoisture()` memanggil semua 3 method fetch data secara berurutan. Ini parallel operation? Tidak. `..` operator adalah sequential: `getTemperature()` dipanggil, tunggu (async), lalu `getHumidity()`, lalu `getSoilMoisture()`. Untuk parallel, sebaiknya gunakan `Future.wait()` atau gunakan `async` di `create` function dengan `FutureProvider`. Tapi untuk simple app, sequential acceptable karena data small dan fast to fetch.
+
+`MaterialApp` adalah root widget Material Design aplikasi. Ini menyediakan konfigurasi global untuk aplikasi.
+- `title: "MCS BAB 5"`: Aplikasi title (untuk accessibility, task switcher, dsb).
+- `debugShowCheckedModeBanner: false`: Hide debug banner di pojok kiri atas (standard Flutter debug banner).
+- `theme: ThemeData(...)`: Konfigurasi themeMaterial Design.
+  - `colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)`: Generate color scheme dari seed color deep purple. Ini otomatis generate primary, secondary, background, dsb warna.
+  - `useMaterial3: true`: Gunakan Material Design 3 (latest Material Design).
+- `home: const SplashScreen()`: Set `SplashScreen` sebagai halaman pertama (route awal).
+
+Pattern ini mengikuti best practice Flutter: gunakan `runApp()` untuk start aplikasi, gunakan `MultiProvider` untuk state management injection, gunakan `MaterialApp` untuk Material Design theme, dan gunakan cascade notation untuk concise initialization.
 
 ---
 
@@ -585,15 +655,29 @@ main.dart (init)
             → Rebuild Consumer widgets (Splash/Home)
 ```
 
+**Penjelasan Flow**:
+
+1. **Entry Point (`main.dart`)**: `main()` function enable `DevicePreview`, lalu `runApp(MyApp())`. `MyApp` rebuild dengan `MultiProvider` yang inject `AppProvider`.
+
+2. **Provider Inisialisasi**: `ChangeNotifierProvider` call `create()` function, buat `AppProvider()` instance, lalu chain `getTemperature()..getHumidity()..getSoilMoisture()`.
+
+3. **API Service Call**: Setiap `getFieldX()` method melakukan HTTP GET request ke ThingSpeak API dengan URL yang sesuai dan API key. Response (JSON string) dikembalikan oleh `Dio`.
+
+4. **JSON Parsing**: Response data di-parse ke model object (`Field1Model`, `Field2Model`, `Field3Model`) menggunakan factory constructor `FieldXModel.fromJson()`. Ini convert JSON map ke Dart object dengan tipe yang safe.
+
+5. **State Update**: Hasil parsing assign ke `fieldXmodel` property di `AppProvider`. Karena `notifyListeners()` dipanggil sebelum fetch, Flutter sudah notify listeners (untuk loading state), lalu assign data.
+
+6. **UI Rebuild**: Widgets yang listen ke `AppProvider` (via `Consumer` atau `Provider.of`) rebuild otomatis. `HomePage` menampilkan data sensor dengan `CustomReadField` widget.
+
 ---
 
 ## Dependency Utama
 
-- `flutter`: UI framework.
-- `provider`: State management.
-- `dio`: HTTP client.
-- `google_fonts`: Typography.
-- `device_preview`: Responsive debugging tool.
+- `flutter`: UI framework untuk build aplikasi.
+- `provider`: State management library untuk reactive UI dan dependency injection.
+- `dio`: HTTP client untuk komunikasi dengan API ThingSpeak (lebih powerful dari `HttpClient` bawaan).
+- `google_fonts`: Library untuk use Google Fonts (Roboto) dengan Mudah di Flutter (tanpa perlu add font ke project manual).
+- `device_preview`: Development tool untuk preview aplikasi di berbagai ukuran device langsung di desktop.
 
 ---
 
