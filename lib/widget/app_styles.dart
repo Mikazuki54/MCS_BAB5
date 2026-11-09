@@ -2,42 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppStyles {
-  static TextStyle roboto14Italic = GoogleFonts.roboto(
-    fontSize: 14,
-    fontWeight: FontWeight.w400,
-  );
-  static TextStyle roboto14 = GoogleFonts.roboto(
+  static TextStyle normalTextStyle = GoogleFonts.roboto(
     fontSize: 14,
     fontWeight: FontWeight.w500,
   );
-  static TextStyle roboto14SemiBold = GoogleFonts.roboto(
+  static TextStyle boldTextStyle = GoogleFonts.roboto(
     fontSize: 14,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.bold,
   );
-  static TextStyle roboto14Bold = GoogleFonts.roboto(
+  static TextStyle whiteBoldTextStyle = GoogleFonts.roboto(
     fontSize: 14,
-    fontWeight: FontWeight.w700,
-  );
-  static TextStyle roboto16Italic = GoogleFonts.roboto(
-    fontSize: 16,
-    fontWeight: FontWeight.w400,
-  );
-  static TextStyle roboto16 = GoogleFonts.roboto(
-    fontSize: 16,
-    fontWeight: FontWeight.w500,
-  );
-  static TextStyle roboto16SemiBold = GoogleFonts.roboto(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-  );
-  static TextStyle roboto16Bold = GoogleFonts.roboto(
-    fontSize: 16,
-    fontWeight: FontWeight.w700,
-  );
-
-  static TextStyle whiteRoboto14Bold = GoogleFonts.roboto(
-    fontSize: 14,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.bold,
     color: Colors.white,
   );
 

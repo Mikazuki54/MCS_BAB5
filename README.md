@@ -234,42 +234,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppStyles {
-  static TextStyle roboto14Italic = GoogleFonts.roboto(
-    fontSize: 14,
-    fontWeight: FontWeight.w400,
-  );
-  static TextStyle roboto14 = GoogleFonts.roboto(
+  static TextStyle normalTextStyle = GoogleFonts.roboto(
     fontSize: 14,
     fontWeight: FontWeight.w500,
   );
-  static TextStyle roboto14SemiBold = GoogleFonts.roboto(
+  static TextStyle boldTextStyle = GoogleFonts.roboto(
     fontSize: 14,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.bold,
   );
-  static TextStyle roboto14Bold = GoogleFonts.roboto(
+  static TextStyle whiteBoldTextStyle = GoogleFonts.roboto(
     fontSize: 14,
-    fontWeight: FontWeight.w700,
-  );
-  static TextStyle roboto16Italic = GoogleFonts.roboto(
-    fontSize: 16,
-    fontWeight: FontWeight.w400,
-  );
-  static TextStyle roboto16 = GoogleFonts.roboto(
-    fontSize: 16,
-    fontWeight: FontWeight.w500,
-  );
-  static TextStyle roboto16SemiBold = GoogleFonts.roboto(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-  );
-  static TextStyle roboto16Bold = GoogleFonts.roboto(
-    fontSize: 16,
-    fontWeight: FontWeight.w700,
-  );
-
-  static TextStyle whiteRoboto14Bold = GoogleFonts.roboto(
-    fontSize: 14,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.bold,
     color: Colors.white,
   );
 
@@ -285,11 +260,14 @@ class AppStyles {
 
 File ini berisi `AppStyles` class yang berfungsi sebagai centralized style configuration untuk aplikasi. Ini adalah implementasi dari design system pattern: semua style visual (typography, color, asset path) dikumpulkan di satu tempat untuk mudah di-maintain dan konsisten.
 
-`GoogleFonts.roboto()` adalah factory constructor dari package `google_fonts` yang menghasilkan `TextStyle` object dengan font Roboto. Font Roboto adalah default Google font yang clean dan modern, cocok untuk aplikasi profesional. Style ditentukan oleh: `fontSize` (ukuran teks), `fontWeight` (ketebalan font), `color` (opsional, default hitam).
+`GoogleFonts.roboto()` adalah factory constructor dari package `google_fonts` yang menghasilkan `TextStyle` object dengan font Roboto. Font Roboto adalah default Google font yang clean dan modern, cocok untuk aplikasi profesional.
 
-`roboto14/16` adalah naming convention untuk font size: `14` atau `16` menunjukkan ukuran font dalam sp (scale-independent pixels). Variasi `Italic`, `SemiBold`, `Bold` menunjukkan `fontStyle` dan `fontWeight`: `w400` (normal), `w500` (medium), `w600` (semi-bold), `w700` (bold).
+AppStyles menyediakan **3 TextStyle utama**:
+- `normalTextStyle`: Roboto font 14sp dengan weight `FontWeight.w500` (medium) untuk text normal/regular. Digunakan untuk body text dan content umum.
+- `boldTextStyle`: Roboto font 14sp dengan weight `FontWeight.bold` untuk text yang perlu emphasis. Digunakan untuk judul, label, dan heading minor.
+- `whiteBoldTextStyle`: Roboto font 14sp dengan weight `FontWeight.bold` dan warna putih (`Colors.white`). Khusus untuk teks di atas background gelap (AppBar, button) agar kontras dan readable.
 
-`whiteRoboto14Bold` adalah style khusus dengan teks warna putih (`color: Colors.white`) untuk teks di atas background gelap (misal: AppBar). Ini menghindari hardcode warna di UI layer.
+Naming convention menggunakan format deskriptif camelCase (`[color][weight]TextStyle`) sehingga mudah dibaca dan agnostik terhadap jenis font jika suatu saat font diganti.
 
 `mainColor` adalah warna tema utama aplikasi (hijau #36725D). Ini digunakan di berbagai tempat (AppBar, button, border) untuk konsistensi visual. Warna hex `0xff36725D` adalah format ARGB (Alpha, Red, Green, Blue) dengan Alpha 255 (opaque). Pemilihan warna hijau sesuai dengan tema pertanian/agrikultur.
 
@@ -297,7 +275,7 @@ File ini berisi `AppStyles` class yang berfungsi sebagai centralized style confi
 
 `gambarThermometer/SoilAnalysis/SensorHumidity` adalah nama file gambar asset (PNG) yang digunakan untuk ikon sensor di UI. Path relatif ke asset folder, dan digunakan dengan `Image.asset()` widget.
 
-Pattern ini mengikuti best practice Flutter: gunakan centralized style configuration untuk maintainability, gunakan `google_fonts` untuk custom typography, dan gunakan naming convention yang jelas untuk membedakan variasi style.
+Pattern ini mengikuti best practice Flutter: gunakan centralized style configuration untuk maintainability, gunakan `google_fonts` untuk custom typography, dan kurangi kompleksitas dengan hanya 3 style utama yang reusable.
 
 ---
 
@@ -392,7 +370,7 @@ class HomePage extends StatelessWidget {
       builder: (context, appProvider, child) {
         return Scaffold(
           appBar: AppBar(
-            title: Text("Agro Tech", style: AppStyles.whiteRoboto14Bold),
+            title: Text("Agro Tech", style: AppStyles.whiteBoldTextStyle),
             centerTitle: true,
             automaticallyImplyLeading: false,
             backgroundColor: AppStyles.mainColor,
@@ -401,18 +379,23 @@ class HomePage extends StatelessWidget {
             child: ListView(
               shrinkWrap: true,
               children: [
+                //field untuk temperatur
                 CustomReadField(
                   hasil: appProvider.field1model!.field1, 
                   warnaBorder: AppStyles.mainColor, 
                   gambar: AppStyles.gambarThermometer,
                 ),
+
                 const SizedBox(height: 20),
+
                 CustomReadField(
                   hasil: appProvider.field2model!.field2, 
                   warnaBorder: AppStyles.mainColor, 
                   gambar: AppStyles.gambarSensorHumidity,
                 ),
+
                 const SizedBox(height: 20),
+
                 CustomReadField(
                   hasil: appProvider.field3model!.field3, 
                   warnaBorder: AppStyles.mainColor, 
@@ -437,7 +420,7 @@ File ini berisi `HomePage` class yang merupakan halaman utama aplikasi untuk men
 `Consumer<AppProvider>` adalah widget dari package `provider` yang listen ke `AppProvider`. Setiap kali `notifyListeners()` dipanggil di `AppProvider`, `Consumer` trigger rebuild widget dan pass `appProvider` object ke builder function.
 
 `Scaffold` adalah widget dasar Material Design layout structure. Ini menyediakan struktur dasar: AppBar, body, floatingActionButton, dsb.
-- `appBar`: AppBar dengan judul "Agro Tech" (menggunakan style dari `AppStyles.whiteRoboto14Bold` agar teks putih), centered title, no automatic back button (`automaticallyImplyLeading: false` karena ini adalah halaman utama), background color `AppStyles.mainColor`.
+- `appBar`: AppBar dengan judul "Agro Tech" (menggunakan style dari `AppStyles.whiteBoldTextStyle` agar teks putih), centered title, no automatic back button (`automaticallyImplyLeading: false` karena ini adalah halaman utama), background color `AppStyles.mainColor`.
 - `body`: Bagian utama halaman.
 
 `body` menggunakan `Center` child `ListView` untuk layout vertical scrollable.
@@ -488,7 +471,7 @@ class _SplashScreenState extends State<SplashScreen> {
           appBar: AppBar(
             title: Text(
               "Agro Tech",
-              style: AppStyles.whiteRoboto14Bold,
+              style: AppStyles.whiteBoldTextStyle,
             ),
             centerTitle: true,
             backgroundColor: AppStyles.mainColor,
@@ -503,7 +486,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   width: double.infinity,
                   child: Text(
                     AppStyles.loremIpsum,
-                    style: AppStyles.roboto14Bold,
+                    style: AppStyles.boldTextStyle,
                     textAlign: TextAlign.justify,
                   ),
                 ),
@@ -524,7 +507,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         ),
                         child: Text(
                           "Continue",
-                          style: AppStyles.whiteRoboto14Bold,
+                          style: AppStyles.whiteBoldTextStyle,
                         ),
                       ),
                       onTap: () {
@@ -600,7 +583,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<AppProvider>(create: (context) => AppProvider()..getTemperature()..getHumidity()..getSoilMoisture()),
+        ChangeNotifierProvider<AppProvider>(
+          create: (context) => AppProvider()
+          ..getTemperature()
+          ..getHumidity()
+          ..getSoilMoisture(),
+        ),
       ],
       child: MaterialApp(
         title: "MCS BAB 5",

@@ -13,7 +13,7 @@ class HomePage extends StatelessWidget {
       builder: (context, appProvider, child) {
         return Scaffold(
           appBar: AppBar(
-            title: Text("Agro Tech", style: AppStyles.whiteRoboto14Bold),
+            title: Text("Agro Tech", style: AppStyles.whiteBoldTextStyle),
             centerTitle: true,
             automaticallyImplyLeading: false,
             backgroundColor: AppStyles.mainColor,

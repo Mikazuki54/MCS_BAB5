@@ -26,7 +26,7 @@ class _SplashScreenState extends State<SplashScreen> {
           appBar: AppBar(
             title: Text(
               "Agro Tech",
-              style: AppStyles.whiteRoboto14Bold,
+              style: AppStyles.whiteBoldTextStyle,
             ),
             centerTitle: true,
             backgroundColor: AppStyles.mainColor,
@@ -41,7 +41,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   width: double.infinity,
                   child: Text(
                     AppStyles.loremIpsum,
-                    style: AppStyles.roboto14Bold,
+                    style: AppStyles.boldTextStyle,
                     textAlign: TextAlign.justify,
                   ),
                 ),
@@ -64,7 +64,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         ),
                         child: Text(
                           "Continue",
-                          style: AppStyles.whiteRoboto14Bold,
+                          style: AppStyles.whiteBoldTextStyle,
                         ),
                       ),
                       onTap: () {
