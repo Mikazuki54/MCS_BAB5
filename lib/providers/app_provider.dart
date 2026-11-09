@@ -7,15 +7,6 @@ class AppProvider extends ChangeNotifier{
   Field1Model? field1model;
   Field2Model? field2model;
   Field3Model? field3model;
-  goToNextPage({required BuildContext context, required navigationPage}) {
-    Navigator.push(
-      context, 
-      MaterialPageRoute(
-        builder: (context) => navigationPage,
-      ),
-    );
-    notifyListeners();
-  }
 
   Future getTemperature() async {
     notifyListeners();

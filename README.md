@@ -1,174 +1,124 @@
-# Agro Tech - MCS BAB 5 🌾
+# Agro Tech - Monitoring Pertanian IoT
 
-Aplikasi mobile berbasis **Flutter** untuk pemantauan parameter pertanian cerdas (*Smart Agriculture / IoT Monitoring*) secara *real-time*. Aplikasi ini membaca data dari sensor suhu udara, kelembapan udara, dan kelembapan tanah yang terhubung ke platform IoT **ThingSpeak** melalui REST API.
-
----
-
-## 📑 Daftar Isi
-1. [Tentang Proyek](#-tentang-proyek)
-2. [Teknologi & Dependensi](#-teknologi--dependensi)
-3. [Arsitektur & Alur Data](#-arsitektur--alur-data)
-4. [Struktur Direktori `lib/`](#-struktur-direktori-lib)
-5. [Penjelasan Lengkap Kode pada `lib/`](#-penjelasan-lengkap-kode-pada-lib)
-   - [1. `main.dart`](#1-libmaindart---entry-point-aplikasi)
-   - [2. `models/field_model.dart`](#2-libmodelsfield_modeldart---data-model--json-serialization)
-   - [3. `services/api_service.dart`](#3-libservicesapi_servicedart---layer-jaringan--rest-api)
-   - [4. `providers/app_provider.dart`](#4-libprovidersapp_providerdart---state-management)
-   - [5. `screens/splash_screen.dart`](#5-libscreenssplash_screendart---halaman-pembuka)
-   - [6. `screens/home_page.dart`](#6-libscreenshome_pagedart---halaman-dashboard-utama)
-   - [7. `widget/app_styles.dart`](#7-libwidgetapp_stylesdart---sistem-desain--konstanta)
-   - [8. `widget/custom_read_field.dart`](#8-libwidgetcustom_read_fielddart---reusable-widget-sensor)
-6. [Catatan & Rekomendasi Peningkatan](#-catatan--rekomendasi-peningkatan)
-7. [Cara Menjalankan Aplikasi](#-cara-menjalankan-aplikasi)
+Aplikasi Flutter untuk memantau parameter lingkungan pertanian (suhu, kelembaban tanah, kelembaban udara) melalui API ThingSpeak.
 
 ---
 
-## 📖 Tentang Proyek
+## File & Penjelasan Detail
 
-Aplikasi **Agro Tech (MCS BAB 5)** dirancang untuk memvisualisasikan data telemetri dari stasiun sensor pertanian. Data dikirimkan oleh mikrokontroler/sensor ke channel **ThingSpeak**, kemudian aplikasi mengambil data entri terakhir (*last entry*) dari 3 field utama:
+### 1. `field_model.dart` (lib/models/)
 
-| Field ThingSpeak | Parameter Sensor | Satuan / Keterangan |
-| :--- | :--- | :--- |
-| **Field 1** | Suhu Udara (*Temperature*) | °C |
-| **Field 2** | Kelembapan Udara (*Humidity*) | % |
-| **Field 3** | Kelembapan Tanah (*Soil Moisture*) | % / Nilai Analog |
-
----
-
-## 🛠 Teknologi & Dependensi
-
-Proyek ini dibangun menggunakan:
-- **Flutter SDK**: `^3.13.5` (Dart SDK compatible)
-- **State Management**: [`provider: ^6.1.5+1`](https://pub.dev/packages/provider) — Manajemen state reaktif menggunakan `ChangeNotifier` dan `Consumer`.
-- **HTTP Client**: [`dio: ^5.11.1`](https://pub.dev/packages/dio) — Library HTTP client untuk melakukan request ke endpoint ThingSpeak.
-- **Typography**: [`google_fonts: ^9.0.0`](https://pub.dev/packages/google_fonts) — Penggunaan font kustom (Roboto).
-- **Responsive Preview**: [`device_preview: ^3.0.0`](https://pub.dev/packages/device_preview) — Pengujian tampilan UI di berbagai jenis rasio layar perangkat.
-
----
-
-## 🔄 Arsitektur & Alur Data
-
-Aplikasi menerapkan pola pemisahan lapisan tanggung jawab (*Separation of Concerns*) yang bersih:
-
-```mermaid
-flowchart TD
-    TS[ThingSpeak Cloud API\nChannel: 3550228] -->|HTTP GET Request / JSON| API[ApiService\nDio Client]
-    API -->|Model Parsing via fromJson| MOD[Models\nField1Model, Field2Model, Field3Model]
-    MOD -->|Simpan State & notifyListeners| PROV[AppProvider\nChangeNotifier]
-    PROV -->|Data Binding via Consumer| UI_SPLASH[SplashScreen]
-    PROV -->|Data Binding via Consumer| UI_HOME[HomePage]
-    UI_HOME -->|Render Custom Cards| WIDGET[CustomReadField]
-```
-
-### Penjelasan Siklus Eksekusi:
-1. **Aplikasi dimulai** melalui `main()` pada `main.dart`.
-2. `AppProvider` diinisialisasi dan langsung mengeksekusi method pengambilan data (`getTemperature()`, `getHumidity()`, `getSoilMoisture()`).
-3. `ApiService` membuat request HTTP GET menggunakan **Dio** ke URL API ThingSpeak untuk Field 1, 2, dan 3.
-4. Response JSON dipetakan ke objek model Dart (`Field1Model`, `Field2Model`, `Field3Model`).
-5. Objek model disimpan di dalam `AppProvider`, lalu memanggil `notifyListeners()`.
-6. UI (`SplashScreen` dan `HomePage`) yang dibungkus dengan `Consumer<AppProvider>` otomatis melakukan render ulang (*rebuild*) saat data tersedia.
-
----
-
-## 📂 Struktur Direktori `lib/`
-
-```
-lib/
-├── main.dart                      # Titik masuk aplikasi, inisialisasi MultiProvider & DevicePreview
-├── models/
-│   └── field_model.dart           # Model entitas data & parser JSON untuk ketiga field sensor
-├── providers/
-│   └── app_provider.dart          # Pengelola state aplikasi & logika bisnis (ChangeNotifier)
-├── screens/
-│   ├── splash_screen.dart         # Layar pembuka (pengenalan & trigger sinkronisasi awal)
-│   └── home_page.dart             # Layar utama yang menampilkan pembacaan ketiga sensor
-├── services/
-│   └── api_service.dart           # Layar komunikasi jaringan (HTTP REST API ThingSpeak via Dio)
-└── widget/
-    ├── app_styles.dart            # Kumpulan gaya tipografi, konstanta warna, teks dummy, & aset
-    └── custom_read_field.dart     # Komponen UI kartu sensor modular yang dapat digunakan ulang
-```
-
----
-
-## 🔍 Penjelasan Lengkap Kode pada `lib/`
-
-Berikut adalah rincian detail baris demi baris, fungsi, dan tanggung jawab dari setiap file di dalam folder `lib/`:
-
----
-
-### 1. `lib/main.dart` - Entry Point Aplikasi
-
-File ini adalah pintu masuk utama saat aplikasi dijalankan.
-
+**Kode Lengkap**:
 ```dart
-void main() {
-  DevicePreview.enable();
-  runApp(MyApp());
+import 'dart:convert';
+
+Field1Model field1ModelFromJson(String str) => Field1Model.fromJson(json.decode(str));
+
+String field1ModelToJson(Field1Model data) => json.encode(data.toJson());
+
+class Field1Model {
+    final DateTime createdAt;
+    final int entryId;
+    final String field1;
+
+    Field1Model({
+        required this.createdAt,
+        required this.entryId,
+        required this.field1,
+    });
+
+    factory Field1Model.fromJson(Map<String, dynamic> json) => Field1Model(
+        createdAt: DateTime.parse(json["created_at"]),
+        entryId: json["entry_id"],
+        field1: json["field1"],
+    );
+
+    Map<String, dynamic> toJson() => {
+        "created_at": createdAt.toIso8601String(),
+        "entry_id": entryId,
+        "field1": field1,
+    };
+}
+
+Field2Model field2ModelFromJson(String str) => Field2Model.fromJson(json.decode(str));
+
+String field2ModelToJson(Field2Model data) => json.encode(data.toJson());
+
+class Field2Model {
+    final DateTime createdAt;
+    final int entryId;
+    final String field2;
+
+    Field2Model({
+        required this.createdAt,
+        required this.entryId,
+        required this.field2,
+    });
+
+    factory Field2Model.fromJson(Map<String, dynamic> json) => Field2Model(
+        createdAt: DateTime.parse(json["created_at"]),
+        entryId: json["entry_id"],
+        field2: json["field2"],
+    );
+
+    Map<String, dynamic> toJson() => {
+        "created_at": createdAt.toIso8601String(),
+        "entry_id": entryId,
+        "field2": field2,
+    };
+}
+
+Field3Model field3ModelFromJson(String str) => Field3Model.fromJson(json.decode(str));
+
+String field3ModelToJson(Field3Model data) => json.encode(data.toJson());
+
+class Field3Model {
+    final DateTime createdAt;
+    final int entryId;
+    final String field3;
+
+    Field3Model({
+        required this.createdAt,
+        required this.entryId,
+        required this.field3,
+    });
+
+    factory Field3Model.fromJson(Map<String, dynamic> json) => Field3Model(
+        createdAt: DateTime.parse(json["created_at"]),
+        entryId: json["entry_id"],
+        field3: json["field3"],
+    );
+
+    Map<String, dynamic> toJson() => {
+        "created_at": createdAt.toIso8601String(),
+        "entry_id": entryId,
+        "field3": field3,
+    };
 }
 ```
 
-#### Komponen & Logika Utama:
-- **`main()`**: Fungsi utama yang mengaktifkan `DevicePreview.enable()` untuk melakukan simulasi tampilan pada resolusi gawai yang berbeda, lalu menjalankan `runApp(MyApp())`.
-- **`MyApp` (`StatelessWidget`)**: Root widget aplikasi.
-- **`MultiProvider`**: Membungkus widget `MaterialApp` agar state `AppProvider` dapat diakses dari seluruh percabangan widget tree (*global state access*).
-- **Cascade Operator (`..`)**:
-  ```dart
-  ChangeNotifierProvider<AppProvider>(
-    create: (context) => AppProvider()
-      ..getTemperature()
-      ..getHumidity()
-      ..getSoilMoisture(),
-  )
-  ```
-  Operator cascade `..` digunakan untuk memanggil fungsi *asynchronous* pengambilan data dari ketiga field sensor tepat saat instance `AppProvider` pertama kali dibuat.
-- **Konfigurasi `MaterialApp`**:
-  - `title`: `"MCS BAB 5"`
-  - `debugShowCheckedModeBanner: false`: Menyembunyikan pita debug di pojok kanan atas.
-  - `theme`: Menggunakan Material 3 dengan *color scheme seed* berwarna `Colors.deepPurple`.
-  - `home`: Mengarahkan tampilan awal ke `SplashScreen()`.
+**Fungsi**: Model data untuk parsing JSON response dari API ThingSpeak.
+
+**Isi**:
+- `Field1Model`: Model untuk data suhu (field ke-1). Memiliki properti `createdAt`, `entryId`, `field1`.
+- `Field2Model`: Model untuk data kelembaban udara (field ke-2). Memiliki properti `createdAt`, `entryId`, `field2`.
+- `Field3Model`: Model untuk data kelembaban tanah (field ke-3). Memiliki properti `createdAt`, `entryId`, `field3`.
+
+**Method**:
+- `xxxModelFromJson(String)`: Helper function untuk convert JSON string ke model.
+- `xxxModelToJson(Model)`: Helper function untuk convert model ke JSON string.
+- `fromJson(Map)`: Factory constructor dari map.
+- `toJson()`: Method untuk serialize object ke map.
 
 ---
 
-### 2. `lib/models/field_model.dart` - Data Model & JSON Serialization
+### 2. `api_service.dart` (lib/services/)
 
-File ini mendefinisikan struktur data untuk menangani respons dari ThingSpeak API. Endpoint ThingSpeak `last.json` menghasilkan objek JSON dengan format:
-```json
-{
-  "created_at": "2026-03-30T07:15:22Z",
-  "entry_id": 105,
-  "field1": "29.4"
-}
-```
-
-File ini mendefinisikan tiga class model yang independen untuk masing-masing field:
-
-#### A. `Field1Model` (Sensor Suhu / Field 1)
-- **Atribut**:
-  - `DateTime createdAt`: Timestamp saat data dicatat oleh ThingSpeak.
-  - `int entryId`: ID unik data entri.
-  - `String field1`: Nilai pembacaan sensor suhu (string angka).
-- **Konstruktor & Factory**:
-  - `Field1Model({required this.createdAt, required this.entryId, required this.field1})`: Konstruktor standar bertipe *required*.
-  - `factory Field1Model.fromJson(Map<String, dynamic> json)`: Mengonversi respons `Map` JSON menjadi objek `Field1Model`. Nilai `created_at` di-*parse* ke tipe `DateTime`.
-  - `Map<String, dynamic> toJson()`: Serialisasi balik objek Dart ke format `Map` JSON.
-- **Helper Functions**:
-  - `field1ModelFromJson(String str)`: Mengonversi string JSON langsung ke instance `Field1Model`.
-  - `field1ModelToJson(Field1Model data)`: Mengonversi objek `Field1Model` menjadi string JSON.
-
-#### B. `Field2Model` (Sensor Kelembapan Udara / Field 2)
-- Struktur identik dengan `Field1Model`, dengan atribut data utama berupa `final String field2` yang merepresentasikan kelembapan udara.
-
-#### C. `Field3Model` (Sensor Kelembapan Tanah / Field 3)
-- Struktur identik dengan model sebelumnya, dengan atribut data utama berupa `final String field3` yang merepresentasikan kelembapan tanah.
-
----
-
-### 3. `lib/services/api_service.dart` - Layer Jaringan & REST API
-
-File ini bertanggung jawab mengisolasi semua operasi I/O jaringan ke server ThingSpeak menggunakan package **Dio**.
-
+**Kode Lengkap**:
 ```dart
+import 'package:bab5/models/field_model.dart';
+import 'package:dio/dio.dart';
+
 class ApiService {
   Dio dio = Dio();
 
@@ -177,195 +127,487 @@ class ApiService {
   String fieldUrl1 = "https://api.thingspeak.com/channels/3550228/fields/1/last.json?api_key=";
   String fieldUrl2 = "https://api.thingspeak.com/channels/3550228/fields/2/last.json?api_key="; 
   String fieldUrl3 = "https://api.thingspeak.com/channels/3550228/fields/3/last.json?api_key="; 
-  ...
+
+  Future<Field1Model> getField1() async {
+    try {
+      final response = await dio.get("$fieldUrl1$readKey");
+      return Field1Model.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Field2Model> getField2() async {
+    try {
+      final response = await dio.get("$fieldUrl2$readKey");
+      return Field2Model.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Field3Model> getField3() async {
+    try {
+      final response = await dio.get("$fieldUrl3$readKey");
+      return Field3Model.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 ```
 
-#### Parameter Konfigurasi:
-- **`Channel ID`**: `3550228` (ID channel ThingSpeak tujuan).
-- **`readKey`**: `"GJALAA6FCFQWBJ6M"` (Read API Key untuk otentikasi data channel).
-- **Endpoint**: Menggunakan path `/fields/{field_id}/last.json` yang secara spesifik meminta hanya 1 rekaman data terbaru, sehingga meminimalkan beban bandwidth data.
+**Fungsi**: Service untuk komunikasi dengan API ThingSpeak.
 
-#### Method API:
-1. **`Future<Field1Model> getField1()`**:
-   - Melakukan HTTP GET ke `$fieldUrl1$readKey`.
-   - Melakukan deserialisasi data respons via `Field1Model.fromJson(response.data)`.
-   - Dilengkapi blok `try-catch` dengan instruksi `rethrow` agar penanganan error dapat diteruskan ke provider.
-2. **`Future<Field2Model> getField2()`**:
-   - Mengambil data pembacaan Field 2 (Kelembapan) dan mengembalikan objek `Field2Model`.
-3. **`Future<Field3Model> getField3()`**:
-   - Mengambil data pembacaan Field 3 (Kelembapan Tanah) dan mengembalikan objek `Field3Model`.
+**Isi**:
+- `readKey`: API key untuk akses read API (GJALAA6FCFQWBJ6M).
+- `fieldUrl1/2/3`: URL endpoint untuk masing-masing field (channel 3550228).
+
+**Method**:
+- `getField1()`: Ambil data suhu terakhir dari field ke-1.
+- `getField2()`: Ambil data kelembaban udara terakhir dari field ke-2.
+- `getField3()`: Ambil data kelembaban tanah terakhir dari field ke-3.
+
+**Dependency**: Menggunakan `Dio` HTTP client.
 
 ---
 
-### 4. `lib/providers/app_provider.dart` - State Management
+### 3. `app_provider.dart` (lib/providers/)
 
-File ini berfungsi sebagai otak (*business logic controller*) aplikasi yang menghubungkan UI dengan layer service data menggunakan pola **Provider** (`ChangeNotifier`).
-
+**Kode Lengkap**:
 ```dart
-class AppProvider extends ChangeNotifier {
+import 'package:bab5/models/field_model.dart';
+import 'package:bab5/services/api_service.dart';
+import 'package:flutter/material.dart';
+
+class AppProvider extends ChangeNotifier{
   Field1Model? field1model;
   Field2Model? field2model;
   Field3Model? field3model;
-  ...
+
+  Future getTemperature() async {
+    notifyListeners();
+    return field1model = await ApiService().getField1();
+  }
+
+  Future getHumidity() async {
+    notifyListeners();
+    return field2model = await ApiService().getField2();
+  }
+
+  Future getSoilMoisture() async {
+    notifyListeners();
+    return field3model = await ApiService().getField3();
+  }
 }
 ```
 
-#### Variabel State:
-- `field1model`: Menyimpan data sensor suhu terbaru (bisa bernilai `null` sebelum data selesai diunduh).
-- `field2model`: Menyimpan data kelembapan udara terbaru.
-- `field3model`: Menyimpan data kelembapan tanah terbaru.
+**Fungsi**: State management menggunakan Provider pattern.
 
-#### Method & Tanggung Jawab:
-- **`goToNextPage({required BuildContext context, required navigationPage})`**:
-  - Fungsi utilitas navigasi rute ke halaman berikutnya via `Navigator.push`.
-  - Memanggil `notifyListeners()` untuk memperbarui widget observer.
-- **`Future getTemperature()`**:
-  - Menjalankan `ApiService().getField1()`.
-  - Menyimpan hasilnya ke properti `field1model`.
-  - Memanggil `notifyListeners()` agar widget consumer menerima notifikasi data baru dan melakukan render ulang.
-- **`Future getHumidity()`**:
-  - Menjalankan `ApiService().getField2()`, memperbarui `field2model`, dan memberitahu UI listener.
-- **`Future getSoilMoisture()`**:
-  - Menjalankan `ApiService().getField3()`, memperbarui `field3model`, dan memberitahu UI listener.
+**Isi**:
+- `field1model`, `field2model`, `field3model`: State untuk menyimpan data dari API.
+
+**Method**:
+- `getTemperature()`: Fetch data suhu, update state dengan `notifyListeners()`.
+- `getHumidity()`: Fetch data kelembaban udara, update state.
+- `getSoilMoisture()`: Fetch data kelembaban tanah, update state.
+
+**Pattern**: Menggunakan `ChangeNotifier` untuk reactivity Flutter UI.
 
 ---
 
-### 5. `lib/screens/splash_screen.dart` - Halaman Pembuka
+### 4. `app_styles.dart` (lib/widget/)
 
-Halaman ini berfungsi sebagai tampilan pertama (*onboarding / splash screen*) yang dilihat oleh pengguna.
+**Kode Lengkap**:
+```dart
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-#### Karakteristik Teknis:
-- Dibuat menggunakan **`StatefulWidget`** agar dapat memanfaatkan siklus hidup (*lifecycle*) `initState()`.
-- **`initState()`**:
-  ```dart
+class AppStyles {
+  static TextStyle roboto14Italic = GoogleFonts.roboto(
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+  );
+  static TextStyle roboto14 = GoogleFonts.roboto(
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+  );
+  static TextStyle roboto14SemiBold = GoogleFonts.roboto(
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+  );
+  static TextStyle roboto14Bold = GoogleFonts.roboto(
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+  );
+  static TextStyle roboto16Italic = GoogleFonts.roboto(
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+  );
+  static TextStyle roboto16 = GoogleFonts.roboto(
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+  );
+  static TextStyle roboto16SemiBold = GoogleFonts.roboto(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+  );
+  static TextStyle roboto16Bold = GoogleFonts.roboto(
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+  );
+
+  static TextStyle whiteRoboto14Bold = GoogleFonts.roboto(
+    fontSize: 14,
+    fontWeight: FontWeight.w700,
+    color: Colors.white,
+  );
+
+  static Color mainColor = const Color(0xff36725D);
+  static String loremIpsum = "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.";
+  static String gambarThermometer = "thermometer.png";
+  static String gambarSoilAnalysis = "soil_analysis.png";
+  static String gambarSensorHumidity = "humidity_sensor.png";
+}
+```
+
+**Fungsi**: Centralized styling & konfigurasi visual aplikasi.
+
+**Isi**:
+- `TextStyle` variants: `roboto14/16` dengan variasi font weight (w400/w500/w600/w700), plus `whiteRoboto14Bold`.
+- `mainColor`: Warna tema aplikasi (hijau #36725D).
+- `loremIpsum`: Teks placeholder untuk demo.
+- `gambarThermometer/SoilAnalysis/SensorHumidity`: Nama file gambar asset (PNG).
+
+**Dependency**: `google_fonts` package untuk custom typography.
+
+---
+
+### 5. `custom_read_field.dart` (lib/widget/)
+
+**Kode Lengkap**:
+```dart
+import 'package:flutter/material.dart';
+
+class CustomReadField extends StatelessWidget {
+  String hasil;
+  Color warnaBorder;
+  String gambar;
+
+  CustomReadField({
+    super.key,
+    required this.hasil,
+    required this.warnaBorder,
+    required this.gambar,
+  });
+
   @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: warnaBorder, width: 4),
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            width: MediaQuery.of(context).size.width / 4,
+            height: MediaQuery.of(context).size.width / 4,
+            child: Image.asset(gambar, fit: BoxFit.fill),
+          ),
+          const SizedBox(height: 14),
+          Center(child: Text(hasil)),
+        ],
+      ),
+    );
+  }
+}
+```
+
+**Fungsi**: Custom reusable widget untuk tampilan card data sensor.
+
+**Props**:
+- `hasil`: String value untuk ditampilkan.
+- `warnaBorder`: Color object untuk border color.
+- `gambar`: String path gambar asset.
+
+**Layout**:
+- Container dengan border radius 24px & border width 4px.
+- Image asset di atas (ukuran 1/4 lebar layar).
+- Text di bawah (centered).
+- Horizontal margin 24px.
+
+---
+
+### 6. `home_page.dart` (lib/screens/)
+
+**Kode Lengkap**:
+```dart
+import 'package:bab5/providers/app_provider.dart';
+import 'package:bab5/widget/app_styles.dart';
+import 'package:bab5/widget/custom_read_field.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text("Agro Tech", style: AppStyles.whiteRoboto14Bold),
+            centerTitle: true,
+            automaticallyImplyLeading: false,
+            backgroundColor: AppStyles.mainColor,
+          ),
+          body: Center(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                CustomReadField(
+                  hasil: appProvider.field1model!.field1, 
+                  warnaBorder: AppStyles.mainColor, 
+                  gambar: AppStyles.gambarThermometer,
+                ),
+                const SizedBox(height: 20),
+                CustomReadField(
+                  hasil: appProvider.field2model!.field2, 
+                  warnaBorder: AppStyles.mainColor, 
+                  gambar: AppStyles.gambarSensorHumidity,
+                ),
+                const SizedBox(height: 20),
+                CustomReadField(
+                  hasil: appProvider.field3model!.field3, 
+                  warnaBorder: AppStyles.mainColor, 
+                  gambar: AppStyles.gambarSoilAnalysis,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+```
+
+**Fungsi**: Halaman utama aplikasi untuk menampilkan data sensor.
+
+**Layout**:
+- AppBar dengan judul "Agro Tech" & warna tema.
+- ListView vertical dengan 3 card `CustomReadField`:
+  1. Data suhu (`field1model.field1`)
+  2. Data kelembaban udara (`field2model.field2`)
+  3. Data kelembaban tanah (`field3model.field3`)
+
+**State**: Menggunakan `Consumer<AppProvider>` untuk subscribe perubahan state.
+
+---
+
+### 7. `splash_screen.dart` (lib/screens/)
+
+**Kode Lengkap**:
+```dart
+import 'package:bab5/providers/app_provider.dart';
+import 'package:bab5/screens/home_page.dart';
+import 'package:bab5/widget/app_styles.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     Provider.of<AppProvider>(context, listen: false).getTemperature();
     Provider.of<AppProvider>(context, listen: false).getHumidity();
     Provider.of<AppProvider>(context, listen: false).getSoilMoisture();
     super.initState();
   }
-  ```
-  Memastikan sinkronisasi data sensor dimulai di latar belakang dengan `listen: false` agar tidak memicu pembaruan widget yang tidak diinginkan selama proses *init*.
-- **`Consumer<AppProvider>`**:
-  - Membungkus tampilan `Scaffold`.
-  - **`AppBar`**: Judul "Agro Tech" di tengah dengan warna latar `AppStyles.mainColor`.
-  - **Body**: Menggunakan `ListView` dengan `shrinkWrap: true` dan `NeverScrollableScrollPhysics` agar konten tetap berada di tengah layar (*Center*).
-  - **Konten Teks**: Menampilkan teks pengantar aplikasi (`AppStyles.loremIpsum`) dengan alignment `justify`.
-  - **Tombol Navigasi**: Tombol kustom "Continue" yang dibungkus `GestureDetector` dengan sudut melengkung (*border radius 24*). Ketika ditekan (`onTap`), pengguna berpindah ke `HomePage()` menggunakan `Navigator.push`.
 
----
-
-### 6. `lib/screens/home_page.dart` - Halaman Dashboard Utama
-
-Halaman utama yang menampilkan ringkasan data sensor lingkungan secara visual.
-
-#### Karakteristik Teknis:
-- Merupakan **`StatelessWidget`** karena reaktivitas data sepenuhnya didelegasikan kepada `AppProvider`.
-- Dibungkus dengan **`Consumer<AppProvider>`**, sehingga setiap kali data di provider berubah, tampilan akan otomatis disegarkan.
-- **`AppBar`**:
-  - Judul: "Agro Tech" (`AppStyles.whiteRoboto14Bold`).
-  - `automaticallyImplyLeading: false`: Menonaktifkan tombol kembali bawaan agar pengguna tetap berada di dashboard utama.
-- **Body & Kartu Sensor**:
-  Menampilkan tiga kartu sensor vertikal menggunakan widget modular `CustomReadField`:
-  1. **Kartu Suhu (Field 1)**:
-     - `hasil`: `appProvider.field1model!.field1`
-     - `warnaBorder`: `AppStyles.mainColor`
-     - `gambar`: `AppStyles.gambarThermometer`
-  2. **Kartu Kelembapan Udara (Field 2)**:
-     - `hasil`: `appProvider.field2model!.field2`
-     - `warnaBorder`: `AppStyles.mainColor`
-     - `gambar`: `AppStyles.gambarSensorHumidity`
-  3. **Kartu Kelembapan Tanah (Field 3)**:
-     - `hasil`: `appProvider.field3model!.field3`
-     - `warnaBorder`: `AppStyles.mainColor`
-     - `gambar`: `AppStyles.gambarSoilAnalysis`
-
----
-
-### 7. `lib/widget/app_styles.dart` - Sistem Desain & Konstanta
-
-File ini menjadi sentralisasi aturan desain (*Design System*) dan konstanta statis agar aplikasi konsisten dan mudah dirawat.
-
-#### Elemen yang Didefinisikan:
-1. **Tipografi (`GoogleFonts.roboto`)**:
-   - `roboto14Italic`, `roboto14`, `roboto14SemiBold`, `roboto14Bold`: Font Roboto ukuran 14pt dengan variasi ketebalan (w400, w500, w600, w700).
-   - `roboto16Italic`, `roboto16`, `roboto16SemiBold`, `roboto16Bold`: Font Roboto ukuran 16pt untuk teks yang lebih tegas.
-   - `whiteRoboto14Bold`: Font Roboto 14pt tebal berwarna putih khusus judul `AppBar` dan teks tombol aksi.
-2. **Palet Warna**:
-   - `mainColor = Color(0xff36725D)`: Warna hijau lumut/hutan (*forest green*) yang melambangkan nuansa agrikultur dan lingkungan hidup.
-3. **Konstanta Teks & Aset**:
-   - `loremIpsum`: Teks dummy untuk deskripsi splash screen.
-   - `gambarThermometer`: `"thermometer.png"`
-   - `gambarSoilAnalysis`: `"soil_analysis.png"`
-   - `gambarSensorHumidity`: `"humidity_sensor.png"`
-
----
-
-### 8. `lib/widget/custom_read_field.dart` - Reusable Widget Sensor
-
-Widget kustom yang berfungsi sebagai komponen kartu visual pembacaan sensor.
-
-```dart
-class CustomReadField extends StatelessWidget {
-  String hasil;
-  Color warnaBorder;
-  String gambar;
-  ...
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(
+              "Agro Tech",
+              style: AppStyles.whiteRoboto14Bold,
+            ),
+            centerTitle: true,
+            backgroundColor: AppStyles.mainColor,
+          ),
+          body: Center(
+            child: ListView(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                Container(
+                  margin: EdgeInsets.symmetric(horizontal: 20),
+                  width: double.infinity,
+                  child: Text(
+                    AppStyles.loremIpsum,
+                    style: AppStyles.roboto14Bold,
+                    textAlign: TextAlign.justify,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    GestureDetector(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 20),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          color: AppStyles.mainColor,
+                        ),
+                        child: Text(
+                          "Continue",
+                          style: AppStyles.whiteRoboto14Bold,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const HomePage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 ```
 
-#### Parameter:
-- `hasil` (`String`): Angka atau teks nilai sensor yang akan ditampilkan.
-- `warnaBorder` (`Color`): Warna garis batas (*border*) kartu.
-- `gambar` (`String`): Nama file aset gambar ikon sensor.
+**Fungsi**: Halaman awal saat aplikasi dibuka.
 
-#### Struktur Tampilan:
-- **`Container`**:
-  - Lebar penuh (`double.infinity`) dengan margin horizontal `24px` dan padding vertikal `18px`.
-  - `BoxDecoration`: Garis tepi dengan ketebalan 4px (`border: Border.all(...)`) dan sudut melengkung halus `BorderRadius.circular(24)`.
-- **`Column`**:
-  - `SizedBox` penampung gambar responsif: Menggunakan `MediaQuery.of(context).size.width / 4` agar ukuran gambar proporsional terhadap lebar layar pengguna.
-  - `Image.asset(gambar, fit: BoxFit.fill)`: Menampilkan ikon sensor.
-  - `SizedBox(height: 14)`: Jarak pemisah antara gambar dan teks.
-  - `Center(child: Text(hasil))`: Menampilkan nilai bacaan sensor di posisi tengah.
+**Lifecycle**:
+- `initState()`: Fetch semua data sensor (suhu, kelembaban, tanah) via `AppProvider`.
+
+**Layout**:
+- AppBar "Agro Tech".
+- Text lorem ipsum (deskripsi aplikasi).
+- Button "Continue" (hijau) untuk navigasi ke `HomePage`.
+
+**Navigasi**: `SplashScreen` → `HomePage`.
 
 ---
 
-## 💡 Catatan & Rekomendasi Peningkatan
+### 8. `main.dart` (lib/)
 
-Untuk pengembangan lebih lanjut dari kode yang ada di `lib/`, beberapa hal berikut dapat dipertimbangkan:
+**Kode Lengkap**:
+```dart
+import 'package:bab5/providers/app_provider.dart';
+import 'package:bab5/screens/splash_screen.dart';
+import 'package:device_preview/device_preview.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-1. **Penanganan Null Safety pada `HomePage`**:
-   - Pada `home_page.dart`, data dibaca dengan operator *bang* (`appProvider.field1model!.field1`). Jika koneksi lambat atau data belum selesai diunduh saat membuka halaman, aplikasi berisiko melempar error *Null check operator used on a null value*.
-   - *Solusi*: Berikan fallback atau indikator pemuatan, contohnya:
-     ```dart
-     hasil: appProvider.field1model?.field1 ?? "Memuat..."
-     ```
-2. **Path Aset Lengkap**:
-   - Nilai pada `AppStyles.gambarThermometer` saat ini adalah `"thermometer.png"`. Di Flutter, pemanggilan aset lokal dari folder `assets/` biasanya memerlukan path lengkap:
-     ```dart
-     static String gambarThermometer = "assets/thermometer.png";
-     ```
-3. **Efisiensi Panggilan API**:
-   - Di `main.dart`, `..getTemperature()` dan method lainnya telah dipanggil secara berantai. Di `splash_screen.dart`, method yang sama dipanggil ulang di `initState()`. Menghilangkan salah satunya akan menghemat kuota request API ThingSpeak (khususnya untuk akun gratis dengan batas jeda per request).
+void main() {
+  DevicePreview.enable();
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppProvider>(
+          create: (context) => AppProvider()
+            ..getTemperature()
+            ..getHumidity()
+            ..getSoilMoisture(),
+        ),
+      ],
+      child: MaterialApp(
+        title: "MCS BAB 5",
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        home: const SplashScreen(),
+      ),
+    );
+  }
+}
+```
+
+**Fungsi**: Entry point aplikasi.
+
+**Isi**:
+- `main()`: Enable `DevicePreview` (untuk debugging responsive), jalankan `MyApp()`.
+- `MyApp`: Stateful root widget.
+  - `MultiProvider`: Inisialisasi `AppProvider` dengan fetch data di constructor.
+  - `MaterialApp`: Set theme, title "MCS BAB 5", hide debug banner.
+  - `home`: `SplashScreen`.
+
+**Dependency**: `device_preview`, `provider` package.
 
 ---
 
-## 🚀 Cara Menjalankan Aplikasi
+## Struktur Data Flow
 
-1. **Pastikan Flutter SDK terpasang**:
-   ```bash
-   flutter --version
-   ```
+```
+main.dart (init)
+  → AppProvider.getTemperature/Humidity/SoilMoisture()
+    → ApiService.getField1/2/3()
+      → HTTP GET ke ThingSpeak API
+        → JSON parse ke Field1/2/3Model
+          → Update AppProvider state
+            → Rebuild Consumer widgets (Splash/Home)
+```
 
-2. **Unduh semua paket dependensi**:
-   ```bash
-   flutter pub get
-   ```
+---
 
-3. **Jalankan aplikasi di emulator atau perangkat fisik**:
-   ```bash
-   flutter run
-   ```
+## Dependency Utama
+
+- `flutter`: UI framework.
+- `provider`: State management.
+- `dio`: HTTP client.
+- `google_fonts`: Typography.
+- `device_preview`: Responsive debugging tool.
+
+---
+
+## Cara Menjalankan
+
+1. Clone repo.
+2. Install dependencies: `flutter pub get`.
+3. Run: `flutter run`.
+4. (Opsional) Debug dengan DevicePreview: gunakan web/mobile device preview mode.
+
+---
+
+## Catatan
+
+- Read API key Hardcoded di `api_service.dart`.
+- Channel ID ThingsPeak: 3550228.
+- Gambar asset (PNG): thermometer.png, soil_analysis.png, humidity_sensor.png.
