@@ -1,39 +1,31 @@
 import 'package:bab5/models/field_model.dart';
 import 'package:dio/dio.dart';
+
 class ApiService {
-  Dio dio = Dio();
+  final Dio dio = Dio();
 
-  final String readKey = "GJALAA6FCFQWBJ6M";
+  static const _baseUrl =
+      'https://api.thingspeak.com/channels/3573892/fields';
+  static const _readKey = 'I6ACBJ42U78QZXQU ';
 
-  String fieldUrl1 = "https://api.thingspeak.com/channels/3550228/fields/1/last.json?api_key=";
-  String fieldUrl2 = "https://api.thingspeak.com/channels/3550228/fields/2/last.json?api_key="; 
-  String fieldUrl3 = "https://api.thingspeak.com/channels/3550228/fields/3/last.json?api_key="; 
+  Future<T> _getField<T>(
+    int field,
+    T Function(Map<String, dynamic>) fromJson,
+  ) async {
+    final response = await dio.get(
+      '$_baseUrl/$field/last.json',
+      queryParameters: {'api_key': _readKey},
+    );
 
-
-  Future<Field1Model> getField1() async {
-    try {
-      final response = await dio.get("$fieldUrl1$readKey");
-      return Field1Model.fromJson(response.data);
-    } catch (e) {
-      rethrow;
-    }
+    return fromJson(Map<String, dynamic>.from(response.data));
   }
 
-  Future<Field2Model> getField2() async {
-    try {
-      final response = await dio.get("$fieldUrl2$readKey");
-      return Field2Model.fromJson(response.data);
-    } catch (e) {
-      rethrow;
-    }
-  }
+  Future<Field1Model> getField1() =>
+      _getField<Field1Model>(1, Field1Model.fromJson);
 
-  Future<Field3Model> getField3() async {
-    try {
-      final response = await dio.get("$fieldUrl3$readKey");
-      return Field3Model.fromJson(response.data);
-    } catch (e) {
-      rethrow;
-    }
-  }
+  Future<Field2Model> getField2() =>
+      _getField<Field2Model>(2, Field2Model.fromJson);
+
+  Future<Field3Model> getField3() =>
+      _getField<Field3Model>(3, Field3Model.fromJson);
 }

@@ -18,7 +18,7 @@ class Field1Model {
     factory Field1Model.fromJson(Map<String, dynamic> json) => Field1Model(
         createdAt: DateTime.parse(json["created_at"]),
         entryId: json["entry_id"],
-        field1: json["field1"],
+        field1: json["field1"] ?? "0",
     );
 
     Map<String, dynamic> toJson() => {
@@ -46,7 +46,7 @@ class Field2Model {
     factory Field2Model.fromJson(Map<String, dynamic> json) => Field2Model(
         createdAt: DateTime.parse(json["created_at"]),
         entryId: json["entry_id"],
-        field2: json["field2"],
+        field2: json["field2"] ?? "0",
     );
 
     Map<String, dynamic> toJson() => {
@@ -74,7 +74,7 @@ class Field3Model {
     factory Field3Model.fromJson(Map<String, dynamic> json) => Field3Model(
         createdAt: DateTime.parse(json["created_at"]),
         entryId: json["entry_id"],
-        field3: json["field3"],
+        field3: json["field3"] ?? "0",
     );
 
     Map<String, dynamic> toJson() => {

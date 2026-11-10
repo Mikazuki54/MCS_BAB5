@@ -4,6 +4,19 @@ Aplikasi Flutter untuk memantau parameter lingkungan pertanian (suhu, kelembaban
 
 ---
 
+## Package yang Digunakan
+
+- `flutter`: Framework UI untuk membangun aplikasi.
+- `cupertino_icons`: Ikon bergaya Cupertino untuk iOS.
+- `google_fonts`: Menyediakan font Roboto pada tampilan aplikasi.
+- `provider`: State management dan dependency injection.
+- `dio`: HTTP client untuk mengambil data dari API ThingSpeak.
+- `device_preview`: Preview tampilan aplikasi pada berbagai ukuran perangkat.
+- `flutter_test`: Fitur pengujian aplikasi Flutter.
+- `flutter_lints`: Aturan lint untuk menjaga kualitas kode Dart/Flutter.
+
+---
+
 ## File & Penjelasan Detail
 
 ### 1. `field_model.dart` (lib/models/)
@@ -30,7 +43,7 @@ class Field1Model {
     factory Field1Model.fromJson(Map<String, dynamic> json) => Field1Model(
         createdAt: DateTime.parse(json["created_at"]),
         entryId: json["entry_id"],
-        field1: json["field1"],
+        field1: json["field1"] ?? "0",
     );
 
     Map<String, dynamic> toJson() => {
@@ -58,7 +71,7 @@ class Field2Model {
     factory Field2Model.fromJson(Map<String, dynamic> json) => Field2Model(
         createdAt: DateTime.parse(json["created_at"]),
         entryId: json["entry_id"],
-        field2: json["field2"],
+        field2: json["field2"] ?? "0",
     );
 
     Map<String, dynamic> toJson() => {
@@ -86,7 +99,7 @@ class Field3Model {
     factory Field3Model.fromJson(Map<String, dynamic> json) => Field3Model(
         createdAt: DateTime.parse(json["created_at"]),
         entryId: json["entry_id"],
-        field3: json["field3"],
+        field3: json["field3"] ?? "0",
     );
 
     Map<String, dynamic> toJson() => {
@@ -121,40 +134,32 @@ import 'package:bab5/models/field_model.dart';
 import 'package:dio/dio.dart';
 
 class ApiService {
-  Dio dio = Dio();
+  final Dio dio = Dio();
 
-  final String readKey = "GJALAA6FCFQWBJ6M";
+  static const _baseUrl =
+      'https://api.thingspeak.com/channels/3550228/fields';
+  static const _readKey = 'GJALAA6FCFQWBJ6M';
 
-  String fieldUrl1 = "https://api.thingspeak.com/channels/3550228/fields/1/last.json?api_key=";
-  String fieldUrl2 = "https://api.thingspeak.com/channels/3550228/fields/2/last.json?api_key="; 
-  String fieldUrl3 = "https://api.thingspeak.com/channels/3550228/fields/3/last.json?api_key="; 
+  Future<T> _getField<T>(
+    int field,
+    T Function(Map<String, dynamic>) fromJson,
+  ) async {
+    final response = await dio.get(
+      '$_baseUrl/$field/last.json',
+      queryParameters: {'api_key': _readKey},
+    );
 
-  Future<Field1Model> getField1() async {
-    try {
-      final response = await dio.get("$fieldUrl1$readKey");
-      return Field1Model.fromJson(response.data);
-    } catch (e) {
-      rethrow;
-    }
+    return fromJson(Map<String, dynamic>.from(response.data));
   }
 
-  Future<Field2Model> getField2() async {
-    try {
-      final response = await dio.get("$fieldUrl2$readKey");
-      return Field2Model.fromJson(response.data);
-    } catch (e) {
-      rethrow;
-    }
-  }
+  Future<Field1Model> getField1() =>
+      _getField<Field1Model>(1, Field1Model.fromJson);
 
-  Future<Field3Model> getField3() async {
-    try {
-      final response = await dio.get("$fieldUrl3$readKey");
-      return Field3Model.fromJson(response.data);
-    } catch (e) {
-      rethrow;
-    }
-  }
+  Future<Field2Model> getField2() =>
+      _getField<Field2Model>(2, Field2Model.fromJson);
+
+  Future<Field3Model> getField3() =>
+      _getField<Field3Model>(3, Field3Model.fromJson);
 }
 ```
 
@@ -162,19 +167,17 @@ class ApiService {
 
 File ini berisi `ApiService` class yang bertugas melakukan komunikasi HTTP dengan API ThingSpeak untuk mengambil data sensor terakhir. Class ini menggunakan library `Dio` sebagai HTTP client yang lebih powerful dan user-friendly dibanding `HttpClient` bawaan Flutter.
 
-`Dio` adalah HTTP client untuk Dart yang mendukung interseptor, form encoding, JSON parsing, timeout, cancellation, dan lain-lain. Instance `Dio dio = Dio()` dibuat sebagai class member untuk reuse connection pool dan konfigurasi default.
+`Dio` adalah HTTP client untuk Dart yang mendukung interseptor, form encoding, JSON parsing, timeout, cancellation, dan lain-lain. Instance `final Dio dio = Dio()` dibuat sebagai class member untuk reuse connection pool dan konfigurasi default.
 
-`readKey` adalah API key read-only untuk mengakses channel ThingSpeak. API key ini diperlukan oleh ThingSpeak untuk autentikasi request read. Dalam production, API key sebaiknya tidak hardcode di source code, tapi disimpan di environment variable atau menggunakan secure storage. Untuk dev/debug, hardcode acceptable.
+`_readKey` adalah API key read-only untuk mengakses channel ThingSpeak. API key ini diperlukan oleh ThingSpeak untuk autentikasi request read. Dalam production, API key sebaiknya tidak hardcode di source code, tapi disimpan di environment variable atau menggunakan secure storage. Untuk dev/debug, hardcode acceptable.
 
-`fieldUrl1/2/3` adalah URL endpoint untuk masing-masing field sensor. Format URL ThingSpeak untuk mengambil data terakhir adalah `https://api.thingspeak.com/channels/{channel_id}/fields/{field_number}/last.json?api_key={api_key}`. Channel ID 3550228 adalah ID channel yang digunakan, field 1 untuk suhu, field 2 untuk kelembaban udara, field 3 untuk kelembaban tanah. Setiap URL dibentuk dengan string concatenation: `"$fieldUrlX$readKey"`.
+`_baseUrl` adalah URL dasar endpoint ThingSpeak (`https://api.thingspeak.com/channels/3550228/fields`). Nomor field ditambahkan secara dinamis oleh method `_getField()`, sehingga URL tidak perlu ditulis berulang. Channel ID 3550228 adalah ID channel yang digunakan, field 1 untuk suhu, field 2 untuk kelembaban udara, dan field 3 untuk kelembaban tanah. `_readKey` dikirim melalui `queryParameters`, sehingga Dio membentuk parameter `?api_key=...` secara otomatis.
 
-Method `getField1()`, `getField2()`, `getField3()` adalah async function yang mengambil data sensor terakhir untuk masing-masing field. Prosesnya: 1) Gunakan `dio.get()` untuk melakukan HTTP GET request ke URL yang sesuai, 2) Tunggu response dengan `await`, 3) Parse response data menggunakan `FieldXModel.fromJson()` yang sudah dibuat di `field_model.dart`, 4) Return model object.
+Method `_getField()` adalah generic helper method untuk mengambil dan mengubah data JSON menjadi model sesuai field yang diminta. Method `getField1()`, `getField2()`, dan `getField3()` memanggil `_getField()` dengan nomor field dan factory `fromJson` masing-masing model.
 
-Response `response.data` dari Dio adalah `dynamic` yang sebenarnya adalah `Map<String, dynamic>` setelah di-decode oleh Dio dari JSON. Ini mengapa bisa langsung di-pass ke `FieldXModel.fromJson()`.
+Response `response.data` dari Dio dikonversi menjadi `Map<String, dynamic>` menggunakan `Map<String, dynamic>.from(response.data)` sebelum dikirim ke `fromJson()`.
 
-Try-catch digunakan untuk menangani error network atau parsing. Jika terjadi error, `rethrow` digunakan untuk melempar error kembali ke caller. Ini memungkinkan caller menangani error secara spesifik (misal: tampilkan error message, retry, dsb). Alternatif: return `Future<FieldXModel?>` dan return `null` di catch block, tapi `rethrow` lebih jelas bahwa method ini expected to succeed.
-
-Pattern ini mengikuti best practice untuk API service: separate concern antara HTTP communication dan business logic, gunakan async/await untuk non-blocking I/O, dan handle error secara explicit.
+Pattern ini mengikuti best practice untuk API service: separate concern antara HTTP communication dan business logic, hindari duplikasi kode dengan helper method, dan gunakan async/await untuk non-blocking I/O.
 
 ---
 
@@ -640,16 +643,6 @@ main.dart (init)
 5. **State Update**: Hasil parsing assign ke `fieldXmodel` property di `AppProvider`. Karena `notifyListeners()` dipanggil sebelum fetch, Flutter sudah notify listeners (untuk loading state), lalu assign data.
 
 6. **UI Rebuild**: Widgets yang listen ke `AppProvider` (via `Consumer` atau `Provider.of`) rebuild otomatis. `HomePage` menampilkan data sensor dengan `CustomReadField` widget.
-
----
-
-## Dependency Utama
-
-- `flutter`: UI framework untuk build aplikasi.
-- `provider`: State management library untuk reactive UI dan dependency injection.
-- `dio`: HTTP client untuk komunikasi dengan API ThingSpeak (lebih powerful dari `HttpClient` bawaan).
-- `google_fonts`: Library untuk use Google Fonts (Roboto) dengan Mudah di Flutter (tanpa perlu add font ke project manual).
-- `device_preview`: Development tool untuk preview aplikasi di berbagai ukuran device langsung di desktop.
 
 ---
 
