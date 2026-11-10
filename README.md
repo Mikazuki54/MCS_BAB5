@@ -450,82 +450,62 @@ import 'package:provider/provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
-
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  @override
   void initState() {
-    Provider.of<AppProvider>(context, listen: false).getTemperature();
-    Provider.of<AppProvider>(context, listen: false).getHumidity();
-    Provider.of<AppProvider>(context, listen: false).getSoilMoisture();
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AppProvider>()
+        ..getTemperature()
+        ..getHumidity()
+        ..getSoilMoisture();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppProvider>(
-      builder: (context, appProvider, child) {
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(
-              "Agro Tech",
-              style: AppStyles.whiteBoldTextStyle,
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Agro Tech", style: AppStyles.whiteBoldTextStyle),
+        centerTitle: true,
+        backgroundColor: AppStyles.mainColor,
+      ),
+      body: Center(
+        child: ListView(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          children: [
+            Text(
+              AppStyles.loremIpsum,
+              style: AppStyles.boldTextStyle,
+              textAlign: TextAlign.justify,
             ),
-            centerTitle: true,
-            backgroundColor: AppStyles.mainColor,
-          ),
-          body: Center(
-            child: ListView(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                Container(
-                  margin: EdgeInsets.symmetric(horizontal: 20),
-                  width: double.infinity,
-                  child: Text(
-                    AppStyles.loremIpsum,
-                    style: AppStyles.boldTextStyle,
-                    textAlign: TextAlign.justify,
+            const SizedBox(height: 30),
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomePage()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    color: AppStyles.mainColor,
                   ),
+                  child: Text("Continue", style: AppStyles.whiteBoldTextStyle),
                 ),
-                const SizedBox(height: 30),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    GestureDetector(
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 20),
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(24),
-                          color: AppStyles.mainColor,
-                        ),
-                        child: Text(
-                          "Continue",
-                          style: AppStyles.whiteBoldTextStyle,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const HomePage(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
@@ -538,26 +518,30 @@ File ini berisi `SplashScreen` class yang merupakan halaman pertama yang ditampi
 `SplashScreen` adalah `StatefulWidget` karena butuh lifecycle management (`initState()`). Class `SplashScreen` adalah immutable widget, class `_SplashScreenState` adalah mutable state.
 
 `initState()` adalah lifecycle method yang dipanggil sekali saat widget dimasukkan ke tree. Ini adalah tempat ideal untuk inisialisasi: fetch data, subscribe event, dsb.
-- `Provider.of<AppProvider>(context, listen: false)`: Ambil instance `AppProvider` dari widget tree. Parameter `listen: false` penting: ini menunjukkan bahwa state ini tidak perlu listen perubahan (karena `initState()` hanya dipanggil sekali, bukan rebuild). Jika `listen: true`, akan ada warning karena provider rebuild di dalam `initState()`.
-- `getTemperature()`, `getHumidity()`, `getSoilMoisture()`: Panggil method untuk fetch data dari API. Ini async operation, tapi tidak `await` karena tidak perlu tunggu hasil ( navigasi bisa dilakukan meskipun data belum masuk, UI akan update otomatis saat data ready).
-
-`Consumer<AppProvider>` di `build()` tidak digunakan di `SplashScreen` karena UI tidak perlu update reaktif (tidak menampilkan data sensor). Tapi `Consumer` tetap ada karena mungkin untuk future enhancement atau konsistensi. Saat ini, `appProvider` tidak dipakai.
+- `WidgetsBinding.instance.addPostFrameCallback((_) { ... })`: Jalankan API call setelah frame selesai render (hindari error `notifyListeners` dipanggil saat build).
+- `context.read<AppProvider>()`: Ambil `AppProvider` tanpa subscribe ke perubahan (ekivalen `Provider.of(context, listen: false)`). Cascade notation `..` dipakai untuk chain 3 method fetch data secara berurutan.
 
 `Scaffold` dengan layout:
-- `appBar`: Sama seperti di `HomePage`, tapi tanpa `automaticallyImplyLeading: false` (back button tidak relevan di splash screen).
-- `body`: `Center` child `ListView` dengan `shrinkWrap: true` dan `physics: NeverScrollableScrollPhysics()` (tidak scrollable karena hanya ada few content).
+- `appBar`: Sama seperti di `HomePage` (judul, centered, warna tema).
+- `body`: `Center` child `ListView` dengan `shrinkWrap: true` dan `physics: NeverScrollableScrollPhysics()` (tidak scrollable).
 
 Content dalam `ListView`:
-- `Container` dengan `margin` horizontal 20px, `width: double.infinity`: Container memenuhi lebar (minus margin).
 - `Text(AppStyles.loremIpsum)`: Teks placeholder deskripsi aplikasi. `textAlign: TextAlign.justify` membuat teks rata kiri-kanan (full justify).
 - `SizedBox(height: 30)`: Spacing antara text dan button.
-- `Row` dengan `mainAxisAlignment: MainAxisAlignment.end`: Button di posisi kanan.
+- `Align` dengan `alignment: Alignment.centerRight`: Button di posisi kanan (ganti dari `Row` + `mainAxisAlignment: MainAxisAlignment.end`).
 - `GestureDetector`: Widget untuk detect tap event. `onTap()` adalah callback saat user tap.
-- `Container` di dalam `GestureDetector`: Styling button dengan margin, padding, border radius 24px (pill shape), warna tema, dan teks putih "Continue".
+- `Container` di dalam `GestureDetector`: Styling button dengan padding, border radius 24px (pill shape), warna tema, dan teks putih "Continue".
 
-`onTap` event handler: `Navigator.push(context, MaterialPageRoute(builder: (context) => HomePage()))`. Ini navigasi ke `HomePage` dengan animasi Material Design default. `MaterialPageRoute` adalah route yang transisinya sesuai dengan platform (slide right-to-left di Android, slide bottom-to-top di iOS).
+`onTap` event handler: `Navigator.push(context, MaterialPageRoute(builder: (_) => HomePage()))`. Ini navigasi ke `HomePage` dengan animasi Material Design default.
 
-Pattern ini mengikuti best practice Flutter: gunakan `StatefulWidget` untuk lifecycle management, gunakan `initState()` untuk inisialisasi async, gunakan `Navigator` untuk routing, dan gunakan `GestureDetector` untuk interactive widget.
+**Optimasi**:
+- Hapus `Consumer<AppProvider>` (UI splash tidak menampilkan data, tidak perlu listen).
+- Hapus `Padding` wrapper (ganti dengan `padding` langsung di `ListView`).
+- Hapus `margin` duplikat dari `Container` (padding sudah cukup).
+- Ganti `Row` + `mainAxisAlignment: MainAxisAlignment.end` ke `Align` (lebih singkat).
+- Ganti `Provider.of(context, listen: false)` ke `context.read()` (style lebih modern).
+
+Pattern ini mengikuti best practice Flutter: gunakan `StatefulWidget` untuk lifecycle management, gunakan `initState()` untuk inisialisasi async, gunakan `addPostFrameCallback` untuk avoid build-time `notifyListeners` error, gunakan `Navigator` untuk routing, dan gunakan `GestureDetector` untuk interactive widget.
 
 ---
 

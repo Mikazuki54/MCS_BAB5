@@ -6,83 +6,62 @@ import 'package:provider/provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
-
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  @override
   void initState() {
-    Provider.of<AppProvider>(context, listen: false).getTemperature();
-    Provider.of<AppProvider>(context, listen: false).getHumidity();
-    Provider.of<AppProvider>(context, listen: false).getSoilMoisture();
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AppProvider>()
+        ..getTemperature()
+        ..getHumidity()
+        ..getSoilMoisture();
+    });
   }
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<AppProvider>(
-      builder: (context, appProvider, child) {
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(
-              "Agro Tech",
-              style: AppStyles.whiteBoldTextStyle,
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Agro Tech", style: AppStyles.whiteBoldTextStyle),
+        centerTitle: true,
+        backgroundColor: AppStyles.mainColor,
+      ),
+      body: Center(
+        child: ListView(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          children: [
+            Text(
+              AppStyles.loremIpsum,
+              style: AppStyles.boldTextStyle,
+              textAlign: TextAlign.justify,
             ),
-            centerTitle: true,
-            backgroundColor: AppStyles.mainColor,
-          ),
-          body: Center(
-            child: ListView(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                Container(
-                  margin: EdgeInsets.symmetric(horizontal: 20),
-                  width: double.infinity,
-                  child: Text(
-                    AppStyles.loremIpsum,
-                    style: AppStyles.boldTextStyle,
-                    textAlign: TextAlign.justify,
+            const SizedBox(height: 30),
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomePage()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    color: AppStyles.mainColor,
                   ),
+                  child: Text("Continue", style: AppStyles.whiteBoldTextStyle),
                 ),
-                
-                const SizedBox(height: 30),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    GestureDetector(
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 20),
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(24),
-                          color: AppStyles.mainColor,
-                        ),
-                        child: Text(
-                          "Continue",
-                          style: AppStyles.whiteBoldTextStyle,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const HomePage(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
